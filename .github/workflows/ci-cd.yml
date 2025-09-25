@@ -38,54 +38,37 @@ jobs:
         npm ci
         npm run build
     
-    - name: Login to Docker Hub
-      if: github.ref == 'refs/heads/main'
-      uses: docker/login-action@v2
+    # --- NEW STEP: UPLOAD THE BUILD ARTIFACTS ---
+    - name: Upload artifacts for deployment
+      uses: actions/upload-artifact@v3
       with:
-        username: ${{ secrets.DOCKER_HUB_USERNAME }}
-        password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
-    
-    - name: Set up Docker Buildx
-      if: github.ref == 'refs/heads/main'
-      uses: docker/setup-buildx-action@v2
-    
-    - name: Build and push backend Docker image
-      if: github.ref == 'refs/heads/main'
-      uses: docker/build-push-action@v4
-      with:
-        context: ./backend
-        push: true
-        tags: ${{ secrets.DOCKER_HUB_USERNAME }}/savenserve-backend:latest
-    
-    - name: Build and push frontend Docker image
-      if: github.ref == 'refs/heads/main'
-      uses: docker/build-push-action@v4
-      with:
-        context: ./frontend
-        push: true
-        tags: ${{ secrets.DOCKER_HUB_USERNAME }}/savenserve-frontend:latest
-
+        name: deployment-artifacts
+        path: |
+          frontend/dist
+          backend
+          docker-compose.prod.yml
+          deploy.sh
+          
   deploy:
     needs: build-and-test
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v3
-    
+    # --- NEW STEP: DOWNLOAD THE BUILD ARTIFACTS ---
+    - name: Download artifacts from build job
+      uses: actions/download-artifact@v3
+      with:
+        name: deployment-artifacts
+
     - name: Deploy to AWS EC2
       run: |
         # Write the SSH key from secrets to a temporary file
         echo "${{ secrets.EC2_SSH_KEY }}" > private_key.pem
         chmod 600 private_key.pem
 
-        # Copy the necessary deployment files
-        scp -o StrictHostKeyChecking=no -i private_key.pem -r \
-          frontend/dist \
-          backend \
-          docker-compose.prod.yml \
-          deploy.sh \
-          ec2-user@${{ secrets.EC2_HOST }}:~/savenserve/
+        # Copy the downloaded artifacts to the server
+        scp -o StrictHostKeyChecking=no -i private_key.pem -r ./* ec2-user@${{ secrets.EC2_HOST }}:~/savenserve/
         
         # SSH into the server to install dependencies and run the deployment
         ssh -o StrictHostKeyChecking=no -i private_key.pem ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
@@ -101,5 +84,5 @@ jobs:
           # --- IMPORTANT CHANGE HERE ---
           # Run the deployment script as ec2-user in a new login shell
           # to ensure the docker group permissions are applied.
-          su - ec2-user -c 'cd ~/savenserve && chmod +x deploy.sh && ./deploy.sh'
+          su - ec2-user -c 'cd ~/savenserve && chmod +x deploy.sh && sudo ./deploy.sh'
         EOF
