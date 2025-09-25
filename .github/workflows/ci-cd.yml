@@ -79,10 +79,11 @@ jobs:
         echo "${{ secrets.EC2_SSH_KEY }}" > private_key.pem
         chmod 600 private_key.pem
 
-        # Copy the necessary deployment files
-        scp -o StrictHostKeyChecking=no -i private_key.pem -r \
-          frontend/dist \
-          backend \
+        # Create the destination directory on the server
+        ssh -o StrictHostKeyChecking=no -i private_key.pem ec2-user@${{ secrets.EC2_HOST }} "mkdir -p ~/savenserve"
+
+        # Copy ONLY the necessary deployment files
+        scp -o StrictHostKeyChecking=no -i private_key.pem \
           docker-compose.prod.yml \
           deploy.sh \
           ec2-user@${{ secrets.EC2_HOST }}:~/savenserve/
@@ -91,15 +92,26 @@ jobs:
         ssh -o StrictHostKeyChecking=no -i private_key.pem ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
           # Install Docker and Docker Compose
           sudo dnf update -y
-          sudo dnf install -y docker docker-compose
-          
+          sudo dnf install -y docker
+          sudo curl -SL https://github.com/docker/compose/releases/download/v2.20.3/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+
           # Add ec2-user to the docker group and start the service
           sudo usermod -aG docker ec2-user
           sudo systemctl enable docker
           sudo systemctl start docker
           
-          # --- IMPORTANT CHANGE HERE ---
-          # Run the deployment script as ec2-user in a new login shell
-          # to ensure the docker group permissions are applied.
-          su - ec2-user -c 'cd ~/savenserve && chmod +x deploy.sh && ./deploy.sh'
+          # Change to the application directory
+          cd ~/savenserve
+
+          # Create the .env file securely on the server
+          echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" > .env
+          echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
+          echo "DOCKER_HUB_USERNAME=${{ secrets.DOCKER_HUB_USERNAME }}" >> .env
+          echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> .env
+          echo "EC2_HOST=${{ secrets.EC2_HOST }}" >> .env
+
+          # Make the deployment script executable and run it
+          chmod +x deploy.sh
+          sudo ./deploy.sh
         EOF
