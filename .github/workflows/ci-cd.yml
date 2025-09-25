@@ -82,18 +82,18 @@ jobs:
     
     - name: Deploy to AWS EC2
       run: |
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > private_key.pem
-        chmod 600 private_key.pem
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > savenserve.pem
+        chmod 600 savenserve.pem
         
         # Copy deployment files to EC2
-        scp -o StrictHostKeyChecking=no -i private_key.pem \
+        scp -o StrictHostKeyChecking=no -i savenserve.pem \
           docker-compose.prod.yml \
           .env \
           deploy.sh \
           ec2-user@${{ secrets.EC2_HOST }}:~/savenserve/
         
         # Execute deployment script on EC2
-        ssh -o StrictHostKeyChecking=no -i private_key.pem ec2-user@${{ secrets.EC2_HOST }} \
+        ssh -o StrictHostKeyChecking=no -i savenserve.pem ec2-user@${{ secrets.EC2_HOST }} \
           "cd ~/savenserve && chmod +x deploy.sh && ./deploy.sh"
         
-        rm -f private_key.pem
+        rm -f savenserve.pem
