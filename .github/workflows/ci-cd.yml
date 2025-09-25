@@ -87,11 +87,11 @@ jobs:
         
         # SSH into the server to install Docker, create .env, and run the deployment
         ssh -o StrictHostKeyChecking=no -i private_key.pem ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
-          # Install Docker and Docker Compose Plugin for Amazon Linux 2023
+          # Install Docker and Docker Compose for Amazon Linux 2023
           sudo dnf update -y
           sudo dnf install docker -y
-          sudo dnf install docker-compose-plugin -y
-          
+          sudo dnf install docker-compose -y  # <-- CORRECTED PACKAGE NAME
+
           # Add ec2-user to the docker group
           sudo usermod -aG docker ec2-user
           
