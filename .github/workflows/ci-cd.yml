@@ -79,24 +79,37 @@ jobs:
         echo "${{ secrets.EC2_SSH_KEY }}" > private_key.pem
         chmod 600 private_key.pem
 
-        # Copy ONLY the files that exist in the repo
+        # Copy deployment files to the server
         scp -o StrictHostKeyChecking=no -i private_key.pem \
           docker-compose.prod.yml \
           deploy.sh \
           ec2-user@${{ secrets.EC2_HOST }}:~/savenserve/
         
-        # SSH into the server to create the .env file and then run the deployment
+        # SSH into the server to install Docker, create .env, and run the deployment
         ssh -o StrictHostKeyChecking=no -i private_key.pem ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
+          # Install Docker and Docker Compose Plugin for Amazon Linux 2023
+          sudo dnf update -y
+          sudo dnf install docker -y
+          sudo dnf install docker-compose-plugin -y
+          
+          # Add ec2-user to the docker group
+          sudo usermod -aG docker ec2-user
+          
+          # Start the Docker service
+          sudo systemctl enable docker
+          sudo systemctl start docker
+          
+          # Change to the application directory
           cd ~/savenserve
 
-          # Create the .env file securely on the server using GitHub Secrets
+          # Create the .env file securely on the server
           echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" > .env
           echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
           echo "DOCKER_HUB_USERNAME=${{ secrets.DOCKER_HUB_USERNAME }}" >> .env
           echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> .env
           echo "EC2_HOST=${{ secrets.EC2_HOST }}" >> .env
 
-          # Make the deployment script executable and run it
+          # Make the deployment script executable and run it WITH SUDO
           chmod +x deploy.sh
-          ./deploy.sh
+          sudo ./deploy.sh
         EOF
