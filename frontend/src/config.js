@@ -1,6 +1,6 @@
 const config = 
 {
-    "url":"http://54.221.31.187:8081/api"
+    "url":"http://18.207.156.34:8081/api"
 }
 
 export default config
