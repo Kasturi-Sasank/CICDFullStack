@@ -65,7 +65,7 @@ jobs:
         push: true
         tags: ${{ secrets.DOCKER_HUB_USERNAME }}/savenserve-frontend:latest
 
-  deploy:
+deploy:
     needs: build-and-test
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -79,26 +79,20 @@ jobs:
         echo "${{ secrets.EC2_SSH_KEY }}" > private_key.pem
         chmod 600 private_key.pem
 
-        # Copy deployment files to the server
-        scp -o StrictHostKeyChecking=no -i private_key.pem \
-          docker-compose.prod.yml \
-          deploy.sh \
-          ec2-user@${{ secrets.EC2_HOST }}:~/savenserve/
+        # Create the destination directory on the server
+        ssh -o StrictHostKeyChecking=no -i private_key.pem ec2-user@${{ secrets.EC2_HOST }} "mkdir -p ~/savenserve"
+
+        # Copy the ENTIRE repository content to the server
+        scp -o StrictHostKeyChecking=no -i private_key.pem -r ./* ec2-user@${{ secrets.EC2_HOST }}:~/savenserve/
         
-        # SSH into the server to install Docker, create .env, and run the deployment
+        # SSH into the server to install dependencies and run the deployment
         ssh -o StrictHostKeyChecking=no -i private_key.pem ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
-          # Install Docker for Amazon Linux 2023
+          # Install Docker and Docker Compose
           sudo dnf update -y
-          sudo dnf install docker -y
+          sudo dnf install -y docker docker-compose
           
-          # Install Docker Compose directly (Reliable Method)
-          sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-          sudo chmod +x /usr/local/bin/docker-compose
-          
-          # Add ec2-user to the docker group
+          # Add ec2-user to the docker group and start the service
           sudo usermod -aG docker ec2-user
-          
-          # Start the Docker service
           sudo systemctl enable docker
           sudo systemctl start docker
           
@@ -112,7 +106,7 @@ jobs:
           echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> .env
           echo "EC2_HOST=${{ secrets.EC2_HOST }}" >> .env
 
-          # Make the deployment script executable and run it WITH SUDO
+          # Make the deployment script executable and run it
           chmod +x deploy.sh
           sudo ./deploy.sh
         EOF
