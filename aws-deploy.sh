@@ -3,7 +3,7 @@
 # AWS EC2 deployment script for SaveNServe
 
 # Set AWS region
-AWS_REGION=${AWS_REGION:-ap-south-1}
+AWS_REGION=${AWS_REGION:-us-east-1}
 export AWS_DEFAULT_REGION=$AWS_REGION
 
 # Check if instance is running
