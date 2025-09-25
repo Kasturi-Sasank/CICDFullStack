@@ -1,8 +1,6 @@
 services:
   frontend:
-    build: 
-      context: ./frontend
-      dockerfile: Dockerfile
+    image: ${DOCKER_HUB_USERNAME}/savenserve-frontend:latest
     ports:
       - "80:80"
     depends_on:
@@ -14,9 +12,7 @@ services:
       - NODE_ENV=production
 
   backend:
-    build: 
-      context: ./backend
-      dockerfile: Dockerfile
+    image: ${DOCKER_HUB_USERNAME}/savenserve-backend:latest
     ports:
       - "8081:8081"
     environment:

@@ -82,20 +82,20 @@ jobs:
         # Create the destination directory on the server
         ssh -o StrictHostKeyChecking=no -i private_key.pem ec2-user@${{ secrets.EC2_HOST }} "mkdir -p ~/savenserve"
 
-        # Copy the ENTIRE repository content to the server
-        scp -o StrictHostKeyChecking=no -i private_key.pem -r ./* ec2-user@${{ secrets.EC2_HOST }}:~/savenserve/
+        # Copy ONLY the necessary deployment files
+        scp -o StrictHostKeyChecking=no -i private_key.pem \
+          docker-compose.prod.yml \
+          deploy.sh \
+          ec2-user@${{ secrets.EC2_HOST }}:~/savenserve/
         
         # SSH into the server to install dependencies and run the deployment
         ssh -o StrictHostKeyChecking=no -i private_key.pem ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
           # Install Docker and Docker Compose
           sudo dnf update -y
           sudo dnf install -y docker
-          
-          # Install Docker Compose v2 (Amazon Linux 2023 doesn't have docker-compose package)
-          sudo mkdir -p /usr/local/lib/docker/cli-plugins
-          sudo curl -SL https://github.com/docker/compose/releases/download/v2.20.3/docker-compose-linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose
-          sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
-          
+          sudo curl -SL https://github.com/docker/compose/releases/download/v2.20.3/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+
           # Add ec2-user to the docker group and start the service
           sudo usermod -aG docker ec2-user
           sudo systemctl enable docker
